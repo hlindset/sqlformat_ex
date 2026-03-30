@@ -45,7 +45,7 @@ iex> SqlformatEx.format(
 - `:params` - `nil`, a positional list, or a named keyword list/map
 - `:indent` - `1..255`, `{:spaces, n}`, or `:tabs`
 - `:uppercase` - `true`, `false`, or `nil`
-- `:lines_between_queries` - non-negative integer
+- `:lines_between_queries` - `0..255`
 - `:ignore_case_convert` - list of keywords to leave unchanged
 - `:inline` - keep the whole query on one line when `true`
 - `:max_inline_block` - max inline parenthesized block length

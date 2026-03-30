@@ -66,4 +66,18 @@ defmodule SqlformatExTest do
       SqlformatEx.format("select 1", indent: 0)
     end
   end
+
+  test "raises for unknown option keys" do
+    assert_raise ArgumentError, ~r/unknown option :uppercaes/, fn ->
+      SqlformatEx.format("select 1", uppercaes: true)
+    end
+  end
+
+  test "raises for lines_between_queries outside the native range" do
+    assert_raise ArgumentError,
+                 ~r/expected :lines_between_queries to be an integer in 0\.\.255/,
+                 fn ->
+                   SqlformatEx.format("select 1; select 2;", lines_between_queries: 256)
+                 end
+  end
 end

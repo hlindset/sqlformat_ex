@@ -21,7 +21,7 @@ defmodule SqlformatEx do
           {:params, params}
           | {:indent, indent}
           | {:uppercase, boolean() | nil}
-          | {:lines_between_queries, non_neg_integer()}
+          | {:lines_between_queries, 0..255}
           | {:ignore_case_convert, [String.t() | atom()] | nil}
           | {:inline, boolean()}
           | {:max_inline_block, non_neg_integer()}
@@ -45,6 +45,9 @@ defmodule SqlformatEx do
     :dialect
   ]
 
+  @allowed_option_keys [:params | @option_keys]
+  @allowed_option_string_keys Enum.map(@allowed_option_keys, &Atom.to_string/1)
+
   @doc """
   Formats a SQL string using the Rust `sqlformat` crate.
 
@@ -53,7 +56,7 @@ defmodule SqlformatEx do
     * `:params` - `nil`, an indexed list, or a named map/keyword list
     * `:indent` - `1..255`, `{:spaces, n}`, or `:tabs`
     * `:uppercase` - `true`, `false`, or `nil` to preserve case
-    * `:lines_between_queries` - non-negative integer
+    * `:lines_between_queries` - `0..255`
     * `:ignore_case_convert` - list of keywords to leave unchanged
     * `:inline` - force single-line output when `true`
     * `:max_inline_block` - max inline parenthesized block length
@@ -66,7 +69,7 @@ defmodule SqlformatEx do
   def format(sql, opts \\ [])
 
   def format(sql, opts) when is_binary(sql) and is_list(opts) do
-    unless Keyword.keyword?(opts) do
+    if not Keyword.keyword?(opts) do
       raise ArgumentError, "expected options to be a keyword list or map"
     end
 
@@ -86,6 +89,7 @@ defmodule SqlformatEx do
   end
 
   defp do_format(sql, opts) do
+    validate_option_keys!(opts)
     params = normalize_params(fetch_option!(opts, :params, nil))
     format_opts = normalize_format_options(opts)
 
@@ -129,7 +133,7 @@ defmodule SqlformatEx do
   end
 
   defp normalize_option(:lines_between_queries, value) do
-    normalize_non_negative_integer(value, :lines_between_queries)
+    normalize_integer_in_range(value, :lines_between_queries, 0..255)
   end
 
   defp normalize_option(:ignore_case_convert, nil), do: nil
@@ -191,11 +195,37 @@ defmodule SqlformatEx do
           "expected :dialect to be :generic, :postgresql, :sqlserver, or :mssql"
   end
 
+  defp validate_option_keys!(opts) do
+    opts
+    |> Map.keys()
+    |> Enum.reject(&allowed_option_key?/1)
+    |> case do
+      [] ->
+        :ok
+
+      [key | _] ->
+        raise ArgumentError,
+              "unknown option #{inspect(key)}. Expected one of: #{inspect(@allowed_option_keys)}"
+    end
+  end
+
+  defp allowed_option_key?(key) when is_atom(key), do: key in @allowed_option_keys
+  defp allowed_option_key?(key) when is_binary(key), do: key in @allowed_option_string_keys
+  defp allowed_option_key?(_key), do: false
+
   defp normalize_non_negative_integer(value, _name) when is_integer(value) and value >= 0,
     do: value
 
   defp normalize_non_negative_integer(_value, name) do
     raise ArgumentError, "expected #{inspect(name)} to be a non-negative integer"
+  end
+
+  defp normalize_integer_in_range(value, _name, range)
+       when is_integer(value) and value >= range.first and value <= range.last,
+       do: value
+
+  defp normalize_integer_in_range(_value, name, range) do
+    raise ArgumentError, "expected #{inspect(name)} to be an integer in #{inspect(range)}"
   end
 
   defp fetch_option!(opts, key, default) do
