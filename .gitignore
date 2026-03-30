@@ -25,3 +25,5 @@ sqlformat_ex-*.tar
 
 # Rust binary artifacts
 /target/
+/priv/native/
+/Cargo.lock

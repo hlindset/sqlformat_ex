@@ -21,7 +21,7 @@ defmodule SqlformatEx.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:rustler, "> 0.0.0"}
+      {:rustler, "~> 0.37.3", runtime: false}
     ]
   end
 end
