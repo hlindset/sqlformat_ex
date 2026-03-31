@@ -57,264 +57,219 @@ defmodule SqlformatEx do
   @option_key_names Map.new(@known_option_keys, &{Atom.to_string(&1), &1})
 
   @format_options_guide """
-  #### `:params`
-
-  Interpolates placeholders before formatting. A plain list is treated as indexed
-  parameters, while a map or keyword list is treated as named parameters.
-
-  Pass `nil` or omit the option to skip interpolation.
-
-  ```elixir
-  SqlformatEx.format("select ?, ?;", params: ["first", "second"])
-  SqlformatEx.format("select $1, $2;", params: ["first", "second"])
-  SqlformatEx.format("select :name, @`user role`;", params: [name: "Alice", "user role": "admin"])
-  ```
-
-  #### `:indent`
-
-  Controls indentation width and style. Passing an integer is shorthand for
-  `{:spaces, n}`.
-
-  Default: `2` spaces.
-
-  ```elixir
-  SqlformatEx.format(sql, indent: 4)
-  SqlformatEx.format(sql, indent: {:spaces, 2})
-  SqlformatEx.format(sql, indent: :tabs)
-  ```
-
-  #### `:keyword_casing`
-
-  Controls reserved keyword casing:
-
-  - `:uppercase` uppercases keywords such as `SELECT` and `FROM`
-  - `:lowercase` lowercases them
-  - `:preserve` keeps the original casing
-
-  Default: `:preserve`.
-
-  ```elixir
-  SqlformatEx.format(sql, keyword_casing: :uppercase)
-  SqlformatEx.format(sql, keyword_casing: :lowercase)
-  SqlformatEx.format(sql, keyword_casing: :preserve)
-  ```
-
-  #### `:lines_between_queries`
-
-  Adds blank lines between multiple statements in the same input string.
-
-  Default: `1`.
-
-  ```elixir
-  SqlformatEx.format("select 1; select 2;", lines_between_queries: 2)
-  ```
-
-  ```sql
-  select
-    1;
-
-  select
-    2;
-  ```
-
-  #### `:keyword_casing_exceptions`
-
-  Excludes specific tokens from keyword case conversion. Use this when
-  `:keyword_casing` is `:uppercase` or `:lowercase`.
-
-  Pass `nil` or omit the option to let keyword casing apply to all keywords.
-
-  ```elixir
-  SqlformatEx.format(
-    "select sum(total), max(total) from sales",
-    keyword_casing: :uppercase,
-    keyword_casing_exceptions: ["sum", "max"]
-  )
-  ```
-
-  ```sql
-  SELECT
-    sum(total),
-    max(total)
-  FROM
-    sales
-  ```
-
-  `keyword_casing_exceptions` accepts either strings or atoms.
-
-  #### `:inline`
-
-  Forces the output onto one line.
-
-  Default: `false`.
-
-  ```elixir
-  SqlformatEx.format("select a, b from foo where x = 1", inline: true)
-  ```
-
-  ```sql
-  select a, b from foo where x = 1
-  ```
-
-  #### `:max_inline_block`
-
-  Keeps short parenthesized blocks inline up to the configured length.
-
-  Default: `50`.
-
-  Accepted values: non-negative integers.
-
-  ```elixir
-  SqlformatEx.format(
-    "select (a + b) as total, (c + d + e + f) as large_total from metrics",
-    max_inline_block: 12
-  )
-  ```
-
-  ```sql
-  select
-    (a + b) as total,
-    (c + d + e + f) as large_total
-  from
-    metrics
-  ```
-
-  With `max_inline_block: 12`:
-
-  ```sql
-  select
-    (a + b) as total,
-    (
-      c + d + e + f
-    ) as large_total
-  from
-    metrics
-  ```
-
-  #### `:max_inline_arguments`
-
-  Keeps short argument lists inline up to the configured length.
-
-  Default: `nil`.
-
-  Accepted values: non-negative integers or `nil`.
-
-  ```elixir
-  SqlformatEx.format(
-    "select a, b, c, d, e, f, g, h from foo",
-    max_inline_arguments: 50
-  )
-  ```
-
-  Omit this option, or pass `nil`, to keep select lists multiline.
-
-  ```sql
-  select
-    a,
-    b,
-    c,
-    d,
-    e,
-    f,
-    g,
-    h
-  from
-    foo
-  ```
-
-  With `max_inline_arguments: 50`:
-
-  ```sql
-  select
-    a, b, c, d, e, f, g, h
-  from
-    foo
-  ```
-
-  #### `:max_inline_top_level`
-
-  Keeps short top-level queries compact without forcing full `:inline` mode.
-
-  Default: `nil`.
-
-  Accepted values: non-negative integers or `nil`.
-
-  ```elixir
-  SqlformatEx.format(
-    "UPDATE Customers SET ContactName='Alfred Schmidt', City='Hamburg' WHERE CustomerName='Alfreds Futterkiste';",
-    max_inline_top_level: 20,
-    max_inline_arguments: 10
-  )
-  ```
-
-  Omit this option, or pass `nil`, to keep the top-level statement wrapped.
-
-  ```sql
-  UPDATE
-    Customers
-  SET
-    ContactName = 'Alfred Schmidt',
-    City = 'Hamburg'
-  WHERE
-    CustomerName = 'Alfreds Futterkiste';
-  ```
-
-  With `max_inline_top_level: 20`:
-
-  ```sql
-  UPDATE Customers SET
-    ContactName = 'Alfred Schmidt',
-    City = 'Hamburg'
-  WHERE
-    CustomerName = 'Alfreds Futterkiste';
-  ```
-
-  #### `:join_layout`
-
-  Controls whether `JOIN` clauses stay nested under `FROM` or break out as
-  top-level clauses.
-
-  Default: `:nested`.
-
-  Accepted values: `:nested` and `:top_level`.
-
-  ```elixir
-  SqlformatEx.format("select a from foo inner join bar on foo.id = bar.foo_id")
-
-  SqlformatEx.format(
-    "select a from foo inner join bar on foo.id = bar.foo_id",
-    join_layout: :top_level
-  )
-  ```
-
-  Default formatting:
-
-  ```sql
-  select
-    a
-  from
-    foo
-    inner join bar on foo.id = bar.foo_id
-  ```
-
-  With `join_layout: :top_level`:
-
-  ```sql
-  select
-    a
-  from
-    foo
-  inner join
-    bar on foo.id = bar.foo_id
-  ```
-
-  #### `:dialect`
-
-  Selects how dialect-specific SQL syntax is tokenized and formatted.
-
-  Accepted values: `:generic`, `:postgresql`, and `:sqlserver`.
-
-  Default: `:generic`.
+  - **`:params`** Interpolates placeholders before formatting. A plain list is
+    treated as indexed parameters, while a map or keyword list is treated as
+    named parameters. Pass `nil` or omit the option to skip interpolation.
+
+    ```elixir
+    SqlformatEx.format("select ?, ?;", params: ["first", "second"])
+    SqlformatEx.format("select $1, $2;", params: ["first", "second"])
+    SqlformatEx.format("select :name, @`user role`;", params: [name: "Alice", "user role": "admin"])
+    ```
+
+  - **`:indent`** Controls indentation width and style. Passing an integer is
+    shorthand for `{:spaces, n}`. Default: `2` spaces.
+
+    ```elixir
+    SqlformatEx.format(sql, indent: 4)
+    SqlformatEx.format(sql, indent: {:spaces, 2})
+    SqlformatEx.format(sql, indent: :tabs)
+    ```
+
+  - **`:keyword_casing`** Controls reserved keyword casing. Default:
+    `:preserve`.
+
+    ```elixir
+    SqlformatEx.format(sql, keyword_casing: :uppercase)
+    SqlformatEx.format(sql, keyword_casing: :lowercase)
+    SqlformatEx.format(sql, keyword_casing: :preserve)
+    ```
+
+  - **`:lines_between_queries`** Adds blank lines between multiple statements in
+    the same input string. Default: `1`.
+
+    ```elixir
+    SqlformatEx.format("select 1; select 2;", lines_between_queries: 2)
+    ```
+
+    ```sql
+    select
+      1;
+
+    select
+      2;
+    ```
+
+  - **`:keyword_casing_exceptions`** Excludes specific tokens from keyword case
+    conversion. Use this when `:keyword_casing` is `:uppercase` or
+    `:lowercase`. Pass `nil` or omit the option to let keyword casing apply to
+    all keywords.
+
+    ```elixir
+    SqlformatEx.format(
+      "select sum(total), max(total) from sales",
+      keyword_casing: :uppercase,
+      keyword_casing_exceptions: ["sum", "max"]
+    )
+    ```
+
+    ```sql
+    SELECT
+      sum(total),
+      max(total)
+    FROM
+      sales
+    ```
+
+    `keyword_casing_exceptions` accepts either strings or atoms.
+
+  - **`:inline`** Forces the output onto one line. Default: `false`.
+
+    ```elixir
+    SqlformatEx.format("select a, b from foo where x = 1", inline: true)
+    ```
+
+    ```sql
+    select a, b from foo where x = 1
+    ```
+
+  - **`:max_inline_block`** Keeps short parenthesized blocks inline up to the
+    configured length. Default: `50`. Accepted values: non-negative integers.
+
+    ```elixir
+    SqlformatEx.format(
+      "select (a + b) as total, (c + d + e + f) as large_total from metrics",
+      max_inline_block: 12
+    )
+    ```
+
+    ```sql
+    select
+      (a + b) as total,
+      (c + d + e + f) as large_total
+    from
+      metrics
+    ```
+
+    With `max_inline_block: 12`:
+
+    ```sql
+    select
+      (a + b) as total,
+      (
+        c + d + e + f
+      ) as large_total
+    from
+      metrics
+    ```
+
+  - **`:max_inline_arguments`** Keeps short select lists inline up to the
+    configured length. Default: `nil`. Accepted values: non-negative integers
+    or `nil`.
+
+    ```elixir
+    SqlformatEx.format(
+      "select a, b, c, d, e, f, g, h from foo",
+      max_inline_arguments: 50
+    )
+    ```
+
+    Omit this option, or pass `nil`, to keep select lists multiline.
+
+    ```sql
+    select
+      a,
+      b,
+      c,
+      d,
+      e,
+      f,
+      g,
+      h
+    from
+      foo
+    ```
+
+    With `max_inline_arguments: 50`:
+
+    ```sql
+    select
+      a, b, c, d, e, f, g, h
+    from
+      foo
+    ```
+
+  - **`:max_inline_top_level`** Keeps short top-level queries compact without
+    forcing full `:inline` mode. Default: `nil`. Accepted values: non-negative
+    integers or `nil`.
+
+    ```elixir
+    SqlformatEx.format(
+      "UPDATE Customers SET ContactName='Alfred Schmidt', City='Hamburg' WHERE CustomerName='Alfreds Futterkiste';",
+      max_inline_top_level: 20,
+      max_inline_arguments: 10
+    )
+    ```
+
+    Omit this option, or pass `nil`, to keep the top-level statement wrapped.
+
+    ```sql
+    UPDATE
+      Customers
+    SET
+      ContactName = 'Alfred Schmidt',
+      City = 'Hamburg'
+    WHERE
+      CustomerName = 'Alfreds Futterkiste';
+    ```
+
+    With `max_inline_top_level: 20`:
+
+    ```sql
+    UPDATE Customers SET
+      ContactName = 'Alfred Schmidt',
+      City = 'Hamburg'
+    WHERE
+      CustomerName = 'Alfreds Futterkiste';
+    ```
+
+  - **`:join_layout`** Controls whether `JOIN` clauses stay nested under
+    `FROM` or break out as top-level clauses. Default: `:nested`. Accepted
+    values: `:nested` and `:top_level`.
+
+    ```elixir
+    SqlformatEx.format("select a from foo inner join bar on foo.id = bar.foo_id")
+
+    SqlformatEx.format(
+      "select a from foo inner join bar on foo.id = bar.foo_id",
+      join_layout: :top_level
+    )
+    ```
+
+    Default formatting:
+
+    ```sql
+    select
+      a
+    from
+      foo
+      inner join bar on foo.id = bar.foo_id
+    ```
+
+    With `join_layout: :top_level`:
+
+    ```sql
+    select
+      a
+    from
+      foo
+    inner join
+      bar on foo.id = bar.foo_id
+    ```
+
+  - **`:dialect`** Selects how dialect-specific SQL syntax is tokenized and
+    formatted. Accepted values: `:generic`, `:postgresql`, and `:sqlserver`.
+    Default: `:generic`.
   """
 
   @options_schema NimbleOptions.new!(
