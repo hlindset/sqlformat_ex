@@ -33,6 +33,20 @@ defmodule SqlformatExTest do
     assert SqlformatEx.format("select ?, ?;", params: ["first", "second"]) == {:ok, expected}
   end
 
+  test "interpolates one-indexed postgres-style params" do
+    expected =
+      """
+      select
+        first,
+        second,
+        third;
+      """
+      |> String.trim_trailing()
+
+    assert SqlformatEx.format("select $1, $2, $3;", params: ["first", "second", "third"]) ==
+             {:ok, expected}
+  end
+
   test "interpolates named params" do
     expected =
       """
