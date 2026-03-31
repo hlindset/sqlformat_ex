@@ -21,6 +21,7 @@ defmodule SqlformatEx.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:nimble_options, "~> 1.1"},
       {:rustler, "~> 0.37.3", runtime: false}
     ]
   end

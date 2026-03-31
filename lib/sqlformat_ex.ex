@@ -31,8 +31,15 @@ defmodule SqlformatEx do
           | {:dialect, dialect}
 
   @type options :: [option] | map()
+  @type error_reason ::
+          {:invalid_sql, String.t()}
+          | {:invalid_options, String.t()}
+          | {:format_failed, String.t()}
 
-  @option_keys [
+  @type format_result :: {:ok, String.t()} | {:error, error_reason()}
+
+  @known_option_keys [
+    :params,
     :indent,
     :uppercase,
     :lines_between_queries,
@@ -45,55 +52,178 @@ defmodule SqlformatEx do
     :dialect
   ]
 
-  @allowed_option_keys [:params | @option_keys]
-  @allowed_option_string_keys Enum.map(@allowed_option_keys, &Atom.to_string/1)
+  @option_key_names Map.new(@known_option_keys, &{Atom.to_string(&1), &1})
+
+  @options_schema NimbleOptions.new!(
+                    params: [
+                      type: {:or, [nil, {:list, :any}, {:map, {:or, [:string, :atom]}, :any}]},
+                      default: nil,
+                      doc: "Parameter values used for interpolation.",
+                      type_doc: "`nil`, an indexed list, or a named map/keyword list"
+                    ],
+                    indent: [
+                      type:
+                        {:or,
+                         [
+                           {:in, 1..255},
+                           {:tuple, [{:in, [:spaces]}, {:in, 1..255}]},
+                           {:in, [:tabs]}
+                         ]},
+                      doc: "Indentation to use in formatted output.",
+                      type_doc: "`1..255`, `{:spaces, n}`, or `:tabs`"
+                    ],
+                    uppercase: [
+                      type: {:or, [:boolean, nil]},
+                      doc: "Whether to uppercase SQL keywords."
+                    ],
+                    lines_between_queries: [
+                      type: {:in, 0..255},
+                      doc: "Blank lines to insert between queries."
+                    ],
+                    ignore_case_convert: [
+                      type: {:or, [nil, {:list, {:or, [:string, :atom]}}]},
+                      doc: "Keywords to leave unchanged during case conversion.",
+                      type_doc: "`[String.t() | atom()] | nil`"
+                    ],
+                    inline: [
+                      type: :boolean,
+                      doc: "Force single-line output."
+                    ],
+                    max_inline_block: [
+                      type: :non_neg_integer,
+                      doc: "Maximum inline parenthesized block length."
+                    ],
+                    max_inline_arguments: [
+                      type: {:or, [:non_neg_integer, nil]},
+                      doc: "Maximum inline argument list length."
+                    ],
+                    max_inline_top_level: [
+                      type: {:or, [:non_neg_integer, nil]},
+                      doc: "Maximum inline top-level query length."
+                    ],
+                    joins_as_top_level: [
+                      type: :boolean,
+                      doc: "Treat joins as top-level clauses."
+                    ],
+                    dialect: [
+                      type: {:in, [:generic, :postgresql, :sqlserver, :mssql]},
+                      doc: "SQL dialect to format for.",
+                      type_doc: "`:generic`, `:postgresql`, `:sqlserver`, or `:mssql`"
+                    ]
+                  )
 
   @doc """
   Formats a SQL string using the Rust `sqlformat` crate.
 
+  Returns `{:ok, formatted_sql}` on success or `{:error, reason}` on failure.
+
   Supported options:
 
-    * `:params` - `nil`, an indexed list, or a named map/keyword list
-    * `:indent` - `1..255`, `{:spaces, n}`, or `:tabs`
-    * `:uppercase` - `true`, `false`, or `nil` to preserve case
-    * `:lines_between_queries` - `0..255`
-    * `:ignore_case_convert` - list of keywords to leave unchanged
-    * `:inline` - force single-line output when `true`
-    * `:max_inline_block` - max inline parenthesized block length
-    * `:max_inline_arguments` - max inline argument list length
-    * `:max_inline_top_level` - max inline top-level query length
-    * `:joins_as_top_level` - treat joins as top-level clauses
-    * `:dialect` - `:generic`, `:postgresql`, `:sqlserver`, or `:mssql`
+  #{NimbleOptions.docs(@options_schema)}
   """
-  @spec format(String.t(), options()) :: String.t()
+  @spec format(String.t(), options()) :: format_result()
   def format(sql, opts \\ [])
 
   def format(sql, opts) when is_binary(sql) and is_list(opts) do
-    if not Keyword.keyword?(opts) do
-      raise ArgumentError, "expected options to be a keyword list or map"
+    if Keyword.keyword?(opts),
+      do: format_result(sql, Map.new(opts)),
+      else: invalid_options_result()
+  end
+
+  def format(sql, opts) when is_binary(sql) and is_map(opts), do: format_result(sql, opts)
+
+  def format(sql, _opts) when is_binary(sql), do: invalid_options_result()
+
+  def format(_sql, _opts), do: invalid_sql_result()
+
+  @doc """
+  Same as `format/2`, but returns the formatted SQL or raises on failure.
+  """
+  @spec format!(String.t(), options()) :: String.t()
+  def format!(sql, opts \\ []) do
+    case run_format(sql, opts) do
+      {:ok, formatted_sql} -> formatted_sql
+      {:error, _reason, exception, stacktrace} -> reraise exception, stacktrace
     end
-
-    do_format(sql, Map.new(opts))
   end
 
-  def format(sql, opts) when is_binary(sql) and is_map(opts) do
-    do_format(sql, opts)
+  defp format_result(sql, opts) do
+    case run_format(sql, opts) do
+      {:ok, formatted_sql} -> {:ok, formatted_sql}
+      {:error, reason, _exception, _stacktrace} -> {:error, reason}
+    end
   end
 
-  def format(sql, _opts) when is_binary(sql) do
-    raise ArgumentError, "expected options to be a keyword list or map"
+  defp run_format(sql, opts) when is_binary(sql) and is_map(opts) do
+    with {:ok, validated_opts} <- validate_options(opts) do
+      {params, format_opts} = split_options(validated_opts)
+      {:ok, format_nif(sql, params, format_opts)}
+    end
+  rescue
+    exception ->
+      {:error, {:format_failed, Exception.message(exception)}, exception, __STACKTRACE__}
   end
 
-  def format(_sql, _opts) do
-    raise ArgumentError, "expected sql to be a binary"
+  defp run_format(sql, opts) when is_binary(sql) and is_list(opts) do
+    if Keyword.keyword?(opts), do: run_format(sql, Map.new(opts)), else: invalid_options_error()
   end
 
-  defp do_format(sql, opts) do
-    validate_option_keys!(opts)
-    params = normalize_params(fetch_option!(opts, :params, nil))
-    format_opts = normalize_format_options(opts)
+  defp run_format(sql, _opts) when is_binary(sql), do: invalid_options_error()
+  defp run_format(_sql, _opts), do: invalid_sql_error()
 
-    format_nif(sql, params, format_opts)
+  defp invalid_sql_result do
+    {:error, invalid_sql_reason()}
+  end
+
+  defp validate_options(opts) do
+    case opts
+         |> canonicalize_options()
+         |> NimbleOptions.validate(@options_schema) do
+      {:ok, validated_opts} ->
+        {:ok, normalize_options(validated_opts)}
+
+      {:error, %NimbleOptions.ValidationError{} = exception} ->
+        {:error, {:invalid_options, Exception.message(exception)}, exception, []}
+    end
+  end
+
+  defp split_options(validated_opts) do
+    params = Map.fetch!(validated_opts, :params)
+
+    format_opts =
+      validated_opts
+      |> Map.delete(:params)
+
+    {params, format_opts}
+  end
+
+  defp canonicalize_options(opts) do
+    Enum.reduce(opts, %{}, &put_canonical_option/2)
+  end
+
+  defp put_canonical_option({key, value}, acc) when is_atom(key), do: Map.put(acc, key, value)
+
+  defp put_canonical_option({key, value}, acc) when is_binary(key) do
+    canonical_key = Map.get(@option_key_names, key, key)
+
+    if is_atom(canonical_key) and Map.has_key?(acc, canonical_key) do
+      acc
+    else
+      Map.put(acc, canonical_key, value)
+    end
+  end
+
+  defp put_canonical_option({key, value}, acc), do: Map.put(acc, key, value)
+
+  defp normalize_options(validated_opts) do
+    Map.update!(validated_opts, :params, &normalize_params/1)
+    |> maybe_update_option(:indent, &normalize_indent/1)
+    |> maybe_update_option(:ignore_case_convert, &normalize_string_list/1)
+    |> maybe_update_option(:dialect, &normalize_dialect/1)
+  end
+
+  defp maybe_update_option(opts, key, fun) do
+    if Map.has_key?(opts, key), do: Map.update!(opts, key, fun), else: opts
   end
 
   defp normalize_params(nil), do: :none
@@ -101,148 +231,47 @@ defmodule SqlformatEx do
 
   defp normalize_params(params) when is_list(params) do
     if Keyword.keyword?(params) do
-      {:named, Enum.map(params, fn {key, value} -> {to_string(key), to_string(value)} end)}
+      {:named, Enum.map(params, &stringify_pair/1)}
     else
       {:indexed, Enum.map(params, &to_string/1)}
     end
   end
 
   defp normalize_params(params) when is_map(params) do
-    {:named, Enum.map(params, fn {key, value} -> {to_string(key), to_string(value)} end)}
+    {:named, Enum.map(params, &stringify_pair/1)}
   end
 
-  defp normalize_params(_params) do
-    raise ArgumentError, "expected :params to be nil, a list, a keyword list, or a map"
-  end
-
-  defp normalize_format_options(opts) do
-    Enum.reduce(@option_keys, %{}, fn key, acc ->
-      case fetch_option(opts, key) do
-        :error -> acc
-        {:ok, value} -> Map.put(acc, key, normalize_option(key, value))
-      end
-    end)
-  end
-
-  defp normalize_option(:indent, value), do: normalize_indent(value)
-
-  defp normalize_option(:uppercase, value) when is_boolean(value) or is_nil(value), do: value
-
-  defp normalize_option(:uppercase, _value) do
-    raise ArgumentError, "expected :uppercase to be true, false, or nil"
-  end
-
-  defp normalize_option(:lines_between_queries, value) do
-    normalize_integer_in_range(value, :lines_between_queries, 0..255)
-  end
-
-  defp normalize_option(:ignore_case_convert, nil), do: nil
-
-  defp normalize_option(:ignore_case_convert, value) when is_list(value) do
-    Enum.map(value, &to_string/1)
-  end
-
-  defp normalize_option(:ignore_case_convert, _value) do
-    raise ArgumentError, "expected :ignore_case_convert to be a list or nil"
-  end
-
-  defp normalize_option(:inline, value) when is_boolean(value), do: value
-
-  defp normalize_option(:inline, _value) do
-    raise ArgumentError, "expected :inline to be a boolean"
-  end
-
-  defp normalize_option(:max_inline_block, value) do
-    normalize_non_negative_integer(value, :max_inline_block)
-  end
-
-  defp normalize_option(:max_inline_arguments, nil), do: nil
-
-  defp normalize_option(:max_inline_arguments, value) do
-    normalize_non_negative_integer(value, :max_inline_arguments)
-  end
-
-  defp normalize_option(:max_inline_top_level, nil), do: nil
-
-  defp normalize_option(:max_inline_top_level, value) do
-    normalize_non_negative_integer(value, :max_inline_top_level)
-  end
-
-  defp normalize_option(:joins_as_top_level, value) when is_boolean(value), do: value
-
-  defp normalize_option(:joins_as_top_level, _value) do
-    raise ArgumentError, "expected :joins_as_top_level to be a boolean"
-  end
-
-  defp normalize_option(:dialect, value), do: normalize_dialect(value)
-
-  defp normalize_indent(value) when is_integer(value) and value in 1..255, do: {:spaces, value}
-
-  defp normalize_indent({:spaces, value}) when is_integer(value) and value in 1..255,
-    do: {:spaces, value}
-
+  defp normalize_indent(value) when is_integer(value), do: {:spaces, value}
+  defp normalize_indent({:spaces, value}), do: {:spaces, value}
   defp normalize_indent(:tabs), do: :tabs
 
-  defp normalize_indent(_value) do
-    raise ArgumentError, "expected :indent to be 1..255, {:spaces, 1..255}, or :tabs"
-  end
+  defp normalize_string_list(nil), do: nil
+  defp normalize_string_list(values), do: Enum.map(values, &to_string/1)
 
-  defp normalize_dialect(value) when value in [:generic, :postgresql, :sqlserver], do: value
   defp normalize_dialect(:mssql), do: :sqlserver
+  defp normalize_dialect(dialect), do: dialect
 
-  defp normalize_dialect(_value) do
-    raise ArgumentError,
-          "expected :dialect to be :generic, :postgresql, :sqlserver, or :mssql"
+  defp stringify_pair({key, value}), do: {to_string(key), to_string(value)}
+
+  defp invalid_sql_error do
+    {:error, invalid_sql_reason(), ArgumentError.exception("expected sql to be a binary"), []}
   end
 
-  defp validate_option_keys!(opts) do
-    opts
-    |> Map.keys()
-    |> Enum.reject(&allowed_option_key?/1)
-    |> case do
-      [] ->
-        :ok
-
-      [key | _] ->
-        raise ArgumentError,
-              "unknown option #{inspect(key)}. Expected one of: #{inspect(@allowed_option_keys)}"
-    end
+  defp invalid_sql_reason do
+    {:invalid_sql, "expected sql to be a binary"}
   end
 
-  defp allowed_option_key?(key) when is_atom(key), do: key in @allowed_option_keys
-  defp allowed_option_key?(key) when is_binary(key), do: key in @allowed_option_string_keys
-  defp allowed_option_key?(_key), do: false
-
-  defp normalize_non_negative_integer(value, _name) when is_integer(value) and value >= 0,
-    do: value
-
-  defp normalize_non_negative_integer(_value, name) do
-    raise ArgumentError, "expected #{inspect(name)} to be a non-negative integer"
+  defp invalid_options_result do
+    {:error, invalid_options_reason()}
   end
 
-  defp normalize_integer_in_range(value, _name, range)
-       when is_integer(value) and value >= range.first and value <= range.last,
-       do: value
-
-  defp normalize_integer_in_range(_value, name, range) do
-    raise ArgumentError, "expected #{inspect(name)} to be an integer in #{inspect(range)}"
+  defp invalid_options_error do
+    {:error, invalid_options_reason(),
+     ArgumentError.exception("expected options to be a keyword list or map"), []}
   end
 
-  defp fetch_option!(opts, key, default) do
-    case fetch_option(opts, key) do
-      {:ok, value} -> value
-      :error -> default
-    end
-  end
-
-  defp fetch_option(opts, key) do
-    string_key = Atom.to_string(key)
-
-    cond do
-      Map.has_key?(opts, key) -> {:ok, Map.fetch!(opts, key)}
-      Map.has_key?(opts, string_key) -> {:ok, Map.fetch!(opts, string_key)}
-      true -> :error
-    end
+  defp invalid_options_reason do
+    {:invalid_options, "expected options to be a keyword list or map"}
   end
 
   @doc false
