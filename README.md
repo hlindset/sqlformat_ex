@@ -1,7 +1,8 @@
 # SqlformatEx
 
-Elixir bindings for the Rust [`sqlformat`](https://crates.io/crates/sqlformat/0.5.0) library,
-implemented as a Rustler NIF.
+[![hex.pm](https://img.shields.io/hexpm/v/sqlformat_ex.svg)](https://hex.pm/packages/sqlformat_ex) [![docs](https://img.shields.io/badge/hexdocs-docs-336791.svg)](https://hexdocs.pm/sqlformat_ex/)
+
+Elixir bindings for the Rust [`sqlformat`](https://crates.io/crates/sqlformat/0.5.0) library.
 
 ## Installation
 
@@ -50,4 +51,7 @@ iex> SqlformatEx.format!(
 
 ## Option Guide
 
-The full option guide lives in [`SqlformatEx.format/2`](https://hexdocs.pm/sqlformat_ex/SqlformatEx.html#format/2).
+The full option guide can be found in the documentation for
+`SqlformatEx.format/2`.
+
+For the latest published docs, see [HexDocs](https://hexdocs.pm/sqlformat_ex/).

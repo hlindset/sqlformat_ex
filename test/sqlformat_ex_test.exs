@@ -103,6 +103,60 @@ defmodule SqlformatExTest do
            ) == {:ok, expected}
   end
 
+  test "keeps small parenthesized blocks inline up to the configured length" do
+    expected =
+      """
+      select
+        (a + b) as total,
+        (
+          c + d + e + f
+        ) as large_total
+      from
+        metrics
+      """
+      |> String.trim_trailing()
+
+    assert SqlformatEx.format(
+             "select (a + b) as total, (c + d + e + f) as large_total from metrics",
+             max_inline_block: 12
+           ) == {:ok, expected}
+  end
+
+  test "keeps long select lists inline when requested" do
+    expected =
+      """
+      select
+        a, b, c, d, e, f, g, h
+      from
+        foo
+      """
+      |> String.trim_trailing()
+
+    assert SqlformatEx.format(
+             "select a, b, c, d, e, f, g, h from foo",
+             max_inline_arguments: 50
+           ) == {:ok, expected}
+  end
+
+  test "keeps short top-level queries compact when requested" do
+    expected =
+      """
+      UPDATE Customers SET
+        ContactName = 'Alfred Schmidt',
+        City = 'Hamburg'
+      WHERE
+        CustomerName = 'Alfreds Futterkiste';
+      """
+      |> String.trim_trailing()
+
+    assert SqlformatEx.format(
+             "UPDATE Customers SET ContactName='Alfred Schmidt', City='Hamburg' WHERE CustomerName='Alfreds Futterkiste';",
+             max_inline_top_level: 20,
+             max_inline_arguments: 10
+           ) ==
+             {:ok, expected}
+  end
+
   test "preserves listed keywords during keyword casing" do
     expected =
       """

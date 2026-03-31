@@ -57,9 +57,7 @@ defmodule SqlformatEx do
   @option_key_names Map.new(@known_option_keys, &{Atom.to_string(&1), &1})
 
   @format_options_guide """
-  Detailed option guide:
-
-  ### `:params`
+  #### `:params`
 
   Interpolates placeholders before formatting. A plain list is treated as indexed
   parameters, while a map or keyword list is treated as named parameters.
@@ -72,7 +70,7 @@ defmodule SqlformatEx do
   SqlformatEx.format("select :name, @`user role`;", params: [name: "Alice", "user role": "admin"])
   ```
 
-  ### `:indent`
+  #### `:indent`
 
   Controls indentation width and style. Passing an integer is shorthand for
   `{:spaces, n}`.
@@ -85,7 +83,7 @@ defmodule SqlformatEx do
   SqlformatEx.format(sql, indent: :tabs)
   ```
 
-  ### `:keyword_casing`
+  #### `:keyword_casing`
 
   Controls reserved keyword casing:
 
@@ -101,7 +99,7 @@ defmodule SqlformatEx do
   SqlformatEx.format(sql, keyword_casing: :preserve)
   ```
 
-  ### `:lines_between_queries`
+  #### `:lines_between_queries`
 
   Adds blank lines between multiple statements in the same input string.
 
@@ -119,7 +117,7 @@ defmodule SqlformatEx do
     2;
   ```
 
-  ### `:keyword_casing_exceptions`
+  #### `:keyword_casing_exceptions`
 
   Excludes specific tokens from keyword case conversion. Use this when
   `:keyword_casing` is `:uppercase` or `:lowercase`.
@@ -144,7 +142,7 @@ defmodule SqlformatEx do
 
   `keyword_casing_exceptions` accepts either strings or atoms.
 
-  ### `:inline`
+  #### `:inline`
 
   Forces the output onto one line.
 
@@ -158,7 +156,7 @@ defmodule SqlformatEx do
   select a, b from foo where x = 1
   ```
 
-  ### `:max_inline_block`
+  #### `:max_inline_block`
 
   Keeps short parenthesized blocks inline up to the configured length.
 
@@ -173,7 +171,27 @@ defmodule SqlformatEx do
   )
   ```
 
-  ### `:max_inline_arguments`
+  ```sql
+  select
+    (a + b) as total,
+    (c + d + e + f) as large_total
+  from
+    metrics
+  ```
+
+  With `max_inline_block: 12`:
+
+  ```sql
+  select
+    (a + b) as total,
+    (
+      c + d + e + f
+    ) as large_total
+  from
+    metrics
+  ```
+
+  #### `:max_inline_arguments`
 
   Keeps short argument lists inline up to the configured length.
 
@@ -183,15 +201,37 @@ defmodule SqlformatEx do
 
   ```elixir
   SqlformatEx.format(
-    "select concat(first_name, last_name), concat(city, state, country) from users",
-    max_inline_arguments: 24
+    "select a, b, c, d, e, f, g, h from foo",
+    max_inline_arguments: 50
   )
   ```
 
-  Omit this option, or pass `nil`, to use the formatter's default multi-line
-  behavior for argument lists.
+  Omit this option, or pass `nil`, to keep select lists multiline.
 
-  ### `:max_inline_top_level`
+  ```sql
+  select
+    a,
+    b,
+    c,
+    d,
+    e,
+    f,
+    g,
+    h
+  from
+    foo
+  ```
+
+  With `max_inline_arguments: 50`:
+
+  ```sql
+  select
+    a, b, c, d, e, f, g, h
+  from
+    foo
+  ```
+
+  #### `:max_inline_top_level`
 
   Keeps short top-level queries compact without forcing full `:inline` mode.
 
@@ -200,13 +240,36 @@ defmodule SqlformatEx do
   Accepted values: non-negative integers or `nil`.
 
   ```elixir
-  SqlformatEx.format("select a from foo", max_inline_top_level: 40)
+  SqlformatEx.format(
+    "UPDATE Customers SET ContactName='Alfred Schmidt', City='Hamburg' WHERE CustomerName='Alfreds Futterkiste';",
+    max_inline_top_level: 20,
+    max_inline_arguments: 10
+  )
   ```
 
-  Omit this option, or pass `nil`, to use the formatter's default top-level
-  layout behavior.
+  Omit this option, or pass `nil`, to keep the top-level statement wrapped.
 
-  ### `:join_layout`
+  ```sql
+  UPDATE
+    Customers
+  SET
+    ContactName = 'Alfred Schmidt',
+    City = 'Hamburg'
+  WHERE
+    CustomerName = 'Alfreds Futterkiste';
+  ```
+
+  With `max_inline_top_level: 20`:
+
+  ```sql
+  UPDATE Customers SET
+    ContactName = 'Alfred Schmidt',
+    City = 'Hamburg'
+  WHERE
+    CustomerName = 'Alfreds Futterkiste';
+  ```
+
+  #### `:join_layout`
 
   Controls whether `JOIN` clauses stay nested under `FROM` or break out as
   top-level clauses.
@@ -245,7 +308,7 @@ defmodule SqlformatEx do
     bar on foo.id = bar.foo_id
   ```
 
-  ### `:dialect`
+  #### `:dialect`
 
   Selects how dialect-specific SQL syntax is tokenized and formatted.
 
@@ -280,7 +343,7 @@ defmodule SqlformatEx do
                     ],
                     lines_between_queries: [
                       type: {:in, 0..255},
-                      doc: "Blank lines to insert between queries."
+                      doc: "Number of blank lines to insert between queries."
                     ],
                     keyword_casing_exceptions: [
                       type: {:or, [nil, {:list, {:or, [:string, :atom]}}]},
@@ -307,7 +370,7 @@ defmodule SqlformatEx do
                       type: {:in, [:nested, :top_level]},
                       default: :nested,
                       doc:
-                        "Controls whether joins stay nested under FROM or break out as top-level clauses.",
+                        "Controls whether joins stay nested under `FROM` or break out as top-level clauses.",
                       type_doc: "`:nested` or `:top_level`"
                     ],
                     dialect: [
@@ -322,9 +385,11 @@ defmodule SqlformatEx do
 
   Returns `{:ok, formatted_sql}` on success or `{:error, reason}` on failure.
 
-  Supported options:
+  ### Supported options
 
   #{NimbleOptions.docs(@options_schema)}
+
+  ### Options guide
 
   #{@format_options_guide}
   """
