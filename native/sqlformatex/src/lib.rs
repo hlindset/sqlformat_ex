@@ -8,14 +8,18 @@ rustler::atoms! {
     spaces,
     tabs,
     indent,
-    uppercase,
+    keyword_casing,
+    lowercase,
+    preserve,
     lines_between_queries,
     ignore_case_convert,
     inline,
     max_inline_block,
     max_inline_arguments,
     max_inline_top_level,
-    joins_as_top_level,
+    join_layout,
+    nested,
+    top_level,
     dialect,
     generic,
     postgresql,
@@ -42,6 +46,19 @@ enum DialectInput {
     Sqlserver,
 }
 
+#[derive(rustler::NifUnitEnum)]
+enum KeywordCasingInput {
+    Uppercase,
+    Lowercase,
+    Preserve,
+}
+
+#[derive(rustler::NifUnitEnum)]
+enum JoinLayoutInput {
+    Nested,
+    TopLevel,
+}
+
 #[rustler::nif(schedule = "DirtyCpu")]
 fn format_nif(query: String, params: ParamsInput, options: Term<'_>) -> NifResult<String> {
     let params = decode_params(params);
@@ -49,7 +66,9 @@ fn format_nif(query: String, params: ParamsInput, options: Term<'_>) -> NifResul
     let indent = decode_optional_field::<IndentInput>(options, indent())?
         .map(decode_indent)
         .unwrap_or(Indent::Spaces(2));
-    let uppercase = decode_optional_field::<Option<bool>>(options, uppercase())?.flatten();
+    let keyword_casing = decode_optional_field::<KeywordCasingInput>(options, keyword_casing())?
+        .map(decode_keyword_casing)
+        .flatten();
     let lines_between_queries =
         decode_optional_field::<u8>(options, lines_between_queries())?.unwrap_or(1);
     let inline = decode_optional_field::<bool>(options, inline())?.unwrap_or(false);
@@ -59,8 +78,9 @@ fn format_nif(query: String, params: ParamsInput, options: Term<'_>) -> NifResul
         decode_optional_field::<Option<usize>>(options, max_inline_arguments())?.flatten();
     let max_inline_top_level =
         decode_optional_field::<Option<usize>>(options, max_inline_top_level())?.flatten();
-    let joins_as_top_level =
-        decode_optional_field::<bool>(options, joins_as_top_level())?.unwrap_or(false);
+    let join_layout_is_top_level = decode_optional_field::<JoinLayoutInput>(options, join_layout())?
+        .map(decode_join_layout)
+        .unwrap_or(false);
     let dialect = decode_optional_field::<DialectInput>(options, dialect())?
         .map(decode_dialect)
         .unwrap_or(Dialect::Generic);
@@ -73,14 +93,14 @@ fn format_nif(query: String, params: ParamsInput, options: Term<'_>) -> NifResul
 
     let format_options = FormatOptions {
         indent,
-        uppercase,
+        uppercase: keyword_casing,
         lines_between_queries,
         ignore_case_convert,
         inline,
         max_inline_block,
         max_inline_arguments,
         max_inline_top_level,
-        joins_as_top_level,
+        joins_as_top_level: join_layout_is_top_level,
         dialect,
     };
 
@@ -118,6 +138,21 @@ fn decode_dialect(dialect: DialectInput) -> Dialect {
         DialectInput::Generic => Dialect::Generic,
         DialectInput::Postgresql => Dialect::PostgreSql,
         DialectInput::Sqlserver => Dialect::SQLServer,
+    }
+}
+
+fn decode_keyword_casing(keyword_casing: KeywordCasingInput) -> Option<bool> {
+    match keyword_casing {
+        KeywordCasingInput::Uppercase => Some(true),
+        KeywordCasingInput::Lowercase => Some(false),
+        KeywordCasingInput::Preserve => None,
+    }
+}
+
+fn decode_join_layout(join_layout: JoinLayoutInput) -> bool {
+    match join_layout {
+        JoinLayoutInput::Nested => false,
+        JoinLayoutInput::TopLevel => true,
     }
 }
 

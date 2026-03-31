@@ -63,25 +63,92 @@ defmodule SqlformatExTest do
            ) == {:ok, expected}
   end
 
-  test "accepts formatting options" do
+  test "keeps joins nested by default" do
     expected =
       """
-      select
+      SELECT
           a,
           b
-      from
+      FROM
           foo
-      inner join
-          bar on foo.id = bar.foo_id
+          INNER JOIN bar ON foo.id = bar.foo_id
       """
       |> String.trim_trailing()
 
     assert SqlformatEx.format(
              "select a, b from foo inner join bar on foo.id = bar.foo_id",
              indent: 4,
-             uppercase: false,
-             joins_as_top_level: true
+             keyword_casing: :uppercase
            ) == {:ok, expected}
+  end
+
+  test "breaks joins out at the top level when requested" do
+    expected =
+      """
+      SELECT
+          a,
+          b
+      FROM
+          foo
+      INNER JOIN
+          bar ON foo.id = bar.foo_id
+      """
+      |> String.trim_trailing()
+
+    assert SqlformatEx.format(
+             "select a, b from foo inner join bar on foo.id = bar.foo_id",
+             indent: 4,
+             keyword_casing: :uppercase,
+             join_layout: :top_level
+           ) == {:ok, expected}
+  end
+
+  test "preserves listed keywords during keyword casing" do
+    expected =
+      """
+      SELECT
+        sum(total),
+        max(total)
+      FROM
+        sales
+      """
+      |> String.trim_trailing()
+
+    assert SqlformatEx.format(
+             "select sum(total), max(total) from sales",
+             keyword_casing: :uppercase,
+             keyword_casing_exceptions: ["sum", "max"]
+           ) == {:ok, expected}
+  end
+
+  test "lowercases reserved keywords when requested" do
+    expected =
+      """
+      select
+        id,
+        name
+      from
+        users
+      """
+      |> String.trim_trailing()
+
+    assert SqlformatEx.format("Select id, name From users", keyword_casing: :lowercase) ==
+             {:ok, expected}
+  end
+
+  test "preserves keyword casing when requested" do
+    expected =
+      """
+      Select
+        id,
+        name
+      From
+        users
+      """
+      |> String.trim_trailing()
+
+    assert SqlformatEx.format("Select id, name From users", keyword_casing: :preserve) ==
+             {:ok, expected}
   end
 
   test "bang variant returns formatted SQL" do
