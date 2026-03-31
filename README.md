@@ -15,7 +15,7 @@ def deps do
 end
 ```
 
-The native library is compiled automatically through Rustler when the project is compiled.
+The native bindings are automatically compiled through Rustler.
 
 ## Usage
 
