@@ -8,13 +8,16 @@ defmodule SqlformatEx.MixProject do
     [
       app: :sqlformat_ex,
       version: @version,
+      name: "SqlformatEx",
+      description: "Elixir bindings for the Rust sqlformat library",
+      package: package(),
+      docs: docs(),
+      source_url: @source_url,
+      homepage_url: @source_url,
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
-      test_coverage: [tool: ExCoveralls],
       deps: deps(),
-      aliases: aliases(),
-      package: package(),
-      docs: docs()
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
@@ -44,13 +47,6 @@ defmodule SqlformatEx.MixProject do
     ]
   end
 
-  defp aliases do
-    [
-      tidewave:
-        "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000) end)'"
-    ]
-  end
-
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
@@ -68,15 +64,17 @@ defmodule SqlformatEx.MixProject do
     [
       files: [
         "lib",
-        "native/sqlformatex/src",
-        "native/sqlformatex/.cargo",
-        "native/sqlformatex/Cross.toml",
-        "native/sqlformatex/Cargo*",
+        "native",
         "checksum-*.exs",
         "README.md",
+        "CHANGELOG.md",
         "mix.exs"
       ],
-      links: %{"GitHub" => @source_url}
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => @source_url,
+        "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md"
+      }
     ]
   end
 
