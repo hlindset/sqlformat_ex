@@ -8,6 +8,10 @@ edition = "2021"
 name = "sqlformatex"
 crate-type = ["cdylib"]
 
+[features]
+default = ["nif_version_2_15"]
+nif_version_2_15 = ["rustler/nif_version_2_15"]
+
 [dependencies]
-rustler = "0.37.3"
+rustler = { version = "0.37.3", default-features = false, features = ["derive"] }
 sqlformat = "0.5.0"

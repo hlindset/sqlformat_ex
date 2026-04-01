@@ -1,10 +1,13 @@
 defmodule SqlformatEx.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+  @source_url "https://github.com/hlindset/sqlformat_ex"
+
   def project do
     [
       app: :sqlformat_ex,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -44,12 +47,14 @@ defmodule SqlformatEx.MixProject do
       files: [
         "lib",
         "native/sqlformatex/src",
+        "native/sqlformatex/.cargo",
+        "native/sqlformatex/Cross.toml",
         "native/sqlformatex/Cargo*",
         "checksum-*.exs",
         "README.md",
         "mix.exs"
       ],
-      links: %{"GitHub" => "https://github.com/hlindset/sqlformat_ex"}
+      links: %{"GitHub" => @source_url}
     ]
   end
 
@@ -57,8 +62,8 @@ defmodule SqlformatEx.MixProject do
     [
       main: "readme",
       extras: ["README.md"],
-      source_ref: "v0.1.0",
-      source_url: "https://github.com/hlindset/sqlformat_ex"
+      source_ref: "v#{@version}",
+      source_url: @source_url
     ]
   end
 end
