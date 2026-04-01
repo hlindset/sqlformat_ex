@@ -41,8 +41,8 @@ jobs:
             erlang: 27
           - elixir: 1.20.0-rc.4-otp-28
             erlang: 28
-          - elixir: 1.20.0-rc.4-otp-28
-            erlang: 29
+          - elixir: 1.20.0-rc.4-otp-29
+            erlang: 29.0-rc2
     name: Elixir ${{ matrix.elixir }} / OTP ${{ matrix.erlang }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
