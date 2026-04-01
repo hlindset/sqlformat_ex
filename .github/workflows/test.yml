@@ -1,0 +1,86 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: 1.17.3-otp-25
+            erlang: 25
+          - elixir: 1.17.3-otp-26
+            erlang: 26
+          - elixir: 1.17.3-otp-27
+            erlang: 27
+          - elixir: 1.18.4-otp-25
+            erlang: 25
+          - elixir: 1.18.4-otp-26
+            erlang: 26
+          - elixir: 1.18.4-otp-27
+            erlang: 27
+          - elixir: 1.18.4-otp-28
+            erlang: 28
+          - elixir: 1.19.5-otp-26
+            erlang: 26
+          - elixir: 1.19.5-otp-27
+            erlang: 27
+          - elixir: 1.19.5-otp-28
+            erlang: 28
+            coverage: true
+          - elixir: 1.20.0-rc.4-otp-26
+            erlang: 26
+          - elixir: 1.20.0-rc.4-otp-27
+            erlang: 27
+          - elixir: 1.20.0-rc.4-otp-28
+            erlang: 28
+    name: Elixir ${{ matrix.elixir }} / OTP ${{ matrix.erlang }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151
+        with:
+          mise_toml: |
+            [tools]
+            erlang = "${{ matrix.erlang }}"
+            elixir = "${{ matrix.elixir }}"
+      - name: Restore dependencies cache
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-
+      - run: elixir --version
+      - run: mix local.hex --force
+      - run: mix local.rebar --force
+      - run: mix deps.get
+      - run: mix compile --warnings-as-errors
+        env:
+          MIX_ENV: test
+      - run: mix format --check-formatted
+        env:
+          MIX_ENV: test
+      - if: ${{ !matrix.coverage }}
+        run: mix test --no-compile
+        env:
+          MIX_ENV: test
+      - if: ${{ matrix.coverage }}
+        run: mix coveralls.json
+        env:
+          MIX_ENV: test
+      - uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
+        if: ${{ matrix.coverage && secrets.CODECOV_TOKEN != '' }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - if: ${{ matrix.coverage && !cancelled() && secrets.CODECOV_TOKEN != '' }}
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

@@ -10,6 +10,7 @@ defmodule SqlformatEx.MixProject do
       version: @version,
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
+      test_coverage: [tool: ExCoveralls],
       deps: deps(),
       aliases: aliases(),
       package: package(),
@@ -21,6 +22,25 @@ defmodule SqlformatEx.MixProject do
   def application do
     [
       extra_applications: [:logger]
+    ]
+  end
+
+  defp preferred_cli_env do
+    %{
+      coveralls: :test,
+      "coveralls.detail": :test,
+      "coveralls.post": :test,
+      "coveralls.html": :test,
+      "coveralls.json": :test,
+      "coveralls.lcov": :test,
+      "coveralls.cobertura": :test,
+      "test.watch": :test
+    }
+  end
+
+  def cli do
+    [
+      preferred_envs: preferred_cli_env()
     ]
   end
 
@@ -38,7 +58,9 @@ defmodule SqlformatEx.MixProject do
       {:nimble_options, "~> 1.1"},
       {:rustler_precompiled, ">= 0.0.0"},
       {:rustler, ">= 0.0.0", optional: true},
-      {:tidewave, "~> 0.4", only: :dev}
+      {:tidewave, "~> 0.4", only: :dev},
+      {:excoveralls, "~> 0.18", only: :test},
+      {:junit_formatter, "~> 3.4", only: :test}
     ]
   end
 
