@@ -22,6 +22,9 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 sqlformat_ex-*.tar
 
+# Precompiled NIF checksum generated during release prep.
+checksum-*.exs
+
 
 # Rust binary artifacts
 /target/

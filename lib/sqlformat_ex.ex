@@ -6,10 +6,14 @@ defmodule SqlformatEx do
   optional keyword list or map of formatting options.
   """
 
-  use Rustler,
+  version = Mix.Project.config()[:version]
+
+  use RustlerPrecompiled,
     otp_app: :sqlformat_ex,
     crate: "sqlformatex",
-    mode: if(Mix.env() == :prod, do: :release, else: :debug)
+    base_url: "https://github.com/hlindset/sqlformat_ex/releases/download/v#{version}",
+    force_build: Mix.env() != :prod or System.get_env("SQLFORMAT_EX_BUILD") in ["1", "true"],
+    version: version
 
   @type indent :: 1..255 | {:spaces, 1..255} | :tabs
   @type dialect :: :generic | :postgresql | :sqlserver

@@ -9,6 +9,7 @@ defmodule SqlformatEx.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
+      package: package(),
       docs: docs()
     ]
   end
@@ -32,8 +33,23 @@ defmodule SqlformatEx.MixProject do
     [
       {:ex_doc, "~> 0.37", only: :dev, runtime: false},
       {:nimble_options, "~> 1.1"},
-      {:rustler, "~> 0.37.3", runtime: false},
+      {:rustler_precompiled, ">= 0.0.0"},
+      {:rustler, ">= 0.0.0", optional: true},
       {:tidewave, "~> 0.4", only: :dev}
+    ]
+  end
+
+  defp package do
+    [
+      files: [
+        "lib",
+        "native/sqlformatex/src",
+        "native/sqlformatex/Cargo*",
+        "checksum-*.exs",
+        "README.md",
+        "mix.exs"
+      ],
+      links: %{"GitHub" => "https://github.com/hlindset/sqlformat_ex"}
     ]
   end
 

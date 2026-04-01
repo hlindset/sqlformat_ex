@@ -4,6 +4,9 @@
 
 Elixir bindings for the Rust [`sqlformat`](https://crates.io/crates/sqlformat/0.5.0) library.
 
+On supported platforms, precompiled NIFs are downloaded automatically. On other
+platforms, the NIF builds from source if Rust is available.
+
 ## Installation
 
 Add `sqlformat_ex` to your dependencies:
