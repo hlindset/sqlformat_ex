@@ -2,10 +2,10 @@
 
 [![hex.pm](https://img.shields.io/hexpm/v/sqlformat_ex.svg)](https://hex.pm/packages/sqlformat_ex) [![docs](https://img.shields.io/badge/hexdocs-docs-336791.svg)](https://hexdocs.pm/sqlformat_ex/)
 
-Elixir bindings for the Rust [`sqlformat`](https://crates.io/crates/sqlformat/0.5.0) library.
+Elixir bindings for the Rust
+[`sqlformat`](https://crates.io/crates/sqlformat/0.5.0) library.
 
-On supported platforms, precompiled NIFs are downloaded automatically. On other
-platforms, the NIF builds from source if Rust is available.
+On supported platforms, precompiled NIFs are downloaded automatically.
 
 ## Installation
 
