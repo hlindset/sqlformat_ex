@@ -2,3 +2,6 @@
 elixir = "1.19.5-otp-28"
 erlang = "28.4.1"
 rust = "1.94.1"
+
+[env]
+MIX_BUILD_ROOT = "_build/elixir19"

@@ -7,6 +7,26 @@ Elixir bindings for the Rust
 
 On supported platforms, precompiled NIFs are downloaded automatically.
 
+## Toolchains
+
+The default local toolchain is defined in `mise.toml` and uses Elixir 1.19.
+
+Alternate Elixir toolchains are available via mise environments:
+
+```sh
+mise exec -E elixir17 -- mix compile
+mise exec -E elixir18 -- mix compile
+mise exec -- mix compile
+```
+
+Each environment pins an explicit Elixir/OTP pair:
+
+- `elixir17`: Elixir 1.17 on OTP 27
+- `elixir18`: Elixir 1.18 on OTP 28
+- default: Elixir 1.19 on OTP 28
+
+Each environment has its own `MIX_BUILD_ROOT`.
+
 ## Installation
 
 Add `sqlformat_ex` to your dependencies:

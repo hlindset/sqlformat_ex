@@ -8,7 +8,7 @@ defmodule SqlformatEx.MixProject do
     [
       app: :sqlformat_ex,
       version: @version,
-      elixir: "~> 1.19",
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
       deps: deps(),

@@ -1,0 +1,6 @@
+[tools]
+erlang = "28.4.1"
+elixir = "1.18.4-otp-28"
+
+[env]
+MIX_BUILD_ROOT = "_build/elixir18"
