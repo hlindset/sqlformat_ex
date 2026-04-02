@@ -63,12 +63,19 @@ defmodule SqlformatEx.MixProject do
   defp package do
     [
       files: [
+        "Cargo.toml",
+        "Cargo.lock",
         "lib",
         "native",
         "checksum-*.exs",
+        "LICENSE",
         "README.md",
         "CHANGELOG.md",
         "mix.exs"
+      ],
+      exclude_patterns: [
+        "native/sqlformatex/target",
+        "native/sqlformatex/target/**"
       ],
       licenses: ["MIT"],
       links: %{
