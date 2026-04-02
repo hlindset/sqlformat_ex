@@ -30,3 +30,4 @@ checksum-*.exs
 /target/
 /priv/native/
 /Cargo.lock
+/native/sqlformatex/target/
