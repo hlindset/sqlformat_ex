@@ -58,8 +58,7 @@ jobs:
           target: ${{ matrix.job.target }}
           nif-version: ${{ matrix.nif }}
           use-cross: ${{ matrix.job.use-cross }}
-          # Build from the workspace root so Cargo's target dir matches the action's expectations.
-          project-dir: "."
+          project-dir: "native/sqlformatex"
 
       # actions/attest@v4
       - uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
